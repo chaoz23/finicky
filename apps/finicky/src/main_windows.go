@@ -10,6 +10,7 @@ import (
 	"finicky/logger"
 	"finicky/resolver"
 	"finicky/rules"
+	"finicky/util"
 	"finicky/version"
 	"finicky/window"
 	"flag"
@@ -17,7 +18,6 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
@@ -561,6 +561,7 @@ func listenForURLs() {
 		conn, err := listener.Accept()
 		if err != nil {
 			slog.Error("IPC accept error", "error", err)
+			time.Sleep(50 * time.Millisecond)
 			continue
 		}
 		go func() {
@@ -595,11 +596,11 @@ func handOffToPrimary(urlFromArgs string) {
 		if err := sendToPrimary(urlFromArgs); err != nil {
 			slog.Error("Could not forward URL to the running Finicky instance", "error", err)
 			// Fall back to the OS default handler ONLY if we are not it —
-			// otherwise `start` would relaunch Finicky and loop.
+			// otherwise opening the URL would relaunch Finicky and loop.
 			if def, _ := isDefaultBrowser(); !def {
-				cmd := exec.Command("cmd", "/c", "start", "", urlFromArgs)
-				cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-				_ = cmd.Run()
+				if openErr := util.OpenURLDefault(urlFromArgs); openErr != nil {
+					slog.Error("Fallback open via default handler failed", "error", openErr)
+				}
 			} else {
 				slog.Error("Running instance unreachable and Finicky is the default browser; dropping URL to avoid a relaunch loop", "url", urlFromArgs)
 			}

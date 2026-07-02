@@ -43,7 +43,7 @@ jobs:
           cd packages/config-api
           npm run build
           npm run generate-types
-          copy dist\finickyConfigAPI.js ..\..\apps\finicky\src\assets\finickyConfigAPI.js
+          copy /Y dist\finickyConfigAPI.js ..\..\apps\finicky\src\assets\finickyConfigAPI.js
         shell: cmd
 
       - name: Build UI

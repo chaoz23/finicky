@@ -3,7 +3,6 @@
 package browser
 
 import (
-	"log/slog"
 	"sort"
 	"strings"
 	"syscall"
@@ -11,7 +10,7 @@ import (
 )
 
 var (
-	advapi32         = syscall.NewLazyDLL("advapi32.dll")
+	advapi32          = syscall.NewLazyDLL("advapi32.dll")
 	procRegOpenKeyEx  = advapi32.NewProc("RegOpenKeyExW")
 	procRegEnumKeyEx  = advapi32.NewProc("RegEnumKeyExW")
 	procRegQueryValue = advapi32.NewProc("RegQueryValueExW")
@@ -19,6 +18,7 @@ var (
 )
 
 const (
+	hkeyCurrentUser  = 0x80000001
 	hkeyLocalMachine = 0x80000002
 	keyRead          = 0x20019
 )
@@ -30,20 +30,40 @@ func GetInstalledBrowsers() []string {
 }
 
 func getBrowsersFromRegistry() []string {
-	path := `SOFTWARE\Clients\StartMenuInternet`
+	const path = `SOFTWARE\Clients\StartMenuInternet`
+
+	// Browsers register their Start Menu entry under HKCU for per-user
+	// (non-elevated) installs — which is what the default Chrome/Edge/Firefox
+	// installers do — and under HKLM for system-wide installs. Scan both roots
+	// and dedupe so per-user installs aren't missed.
+	seen := map[string]bool{}
+	var names []string
+	for _, root := range []uintptr{hkeyCurrentUser, hkeyLocalMachine} {
+		for _, name := range enumStartMenuBrowsers(root, path) {
+			key := strings.ToLower(name)
+			if !seen[key] {
+				seen[key] = true
+				names = append(names, name)
+			}
+		}
+	}
+	return names
+}
+
+func enumStartMenuBrowsers(root uintptr, path string) []string {
 	pathPtr, _ := syscall.UTF16PtrFromString(path)
 
 	var key syscall.Handle
 	ret, _, _ := procRegOpenKeyEx.Call(
-		hkeyLocalMachine,
+		root,
 		uintptr(unsafe.Pointer(pathPtr)),
 		0,
 		keyRead,
 		uintptr(unsafe.Pointer(&key)),
 	)
 	if ret != 0 {
-		slog.Debug("Failed to open StartMenuInternet registry key")
-		return []string{}
+		// Missing key just means no browsers registered under this root.
+		return nil
 	}
 	defer procRegCloseKey.Call(uintptr(key))
 

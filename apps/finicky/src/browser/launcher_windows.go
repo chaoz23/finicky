@@ -6,13 +6,14 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"finicky/util"
 
 	"al.essio.dev/pkg/shellescape"
 )
@@ -79,16 +80,17 @@ func LaunchBrowser(config BrowserConfig, dryRun bool, openInBackgroundByDefault 
 	// Find the browser executable
 	exePath := findBrowserExe(config.Name)
 	if exePath == "" {
-		// Fallback: use cmd /c start to let Windows find the browser
-		allArgs := append([]string{"/c", "start", "", config.URL}, cmdArgs...)
-		cmd := exec.Command("cmd", allArgs...)
-		prettyCmd := formatCommand(cmd.Path, cmd.Args)
+		// Fallback: no known exe for this browser name — open the URL with the
+		// system default handler. The URL is passed to ShellExecuteW as a single
+		// argument (never through cmd.exe), so metacharacters in it can't be
+		// re-tokenized into commands. Profile/custom args can't be honored here
+		// because the target executable is unknown.
 		if dryRun {
-			slog.Debug("Would run command (dry run)", "command", prettyCmd)
+			slog.Debug("Would open URL via default handler (dry run)", "url", config.URL)
 			return nil
 		}
-		slog.Debug("Run command (fallback)", "command", prettyCmd)
-		return cmd.Run()
+		slog.Debug("Opening URL via default handler (no known exe)", "browser", config.Name, "url", config.URL)
+		return util.OpenURLDefault(config.URL)
 	}
 
 	cmd := exec.Command(exePath, cmdArgs...)
@@ -101,30 +103,13 @@ func LaunchBrowser(config BrowserConfig, dryRun bool, openInBackgroundByDefault 
 
 	slog.Debug("Run command", "command", prettyCmd)
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
+	// CombinedOutput drains stdout and stderr concurrently, avoiding the
+	// deadlock that draining two pipes sequentially can cause when the child
+	// fills one pipe's buffer while we're blocked reading the other.
+	out, cmdErr := cmd.CombinedOutput()
+	if len(out) > 0 {
+		slog.Debug("Command output", "output", string(out))
 	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	stderrBytes, _ := io.ReadAll(stderr)
-	stdoutBytes, _ := io.ReadAll(stdout)
-	cmdErr := cmd.Wait()
-
-	if len(stderrBytes) > 0 {
-		slog.Error("Command returned error", "error", string(stderrBytes))
-	}
-	if len(stdoutBytes) > 0 {
-		slog.Debug("Command returned output", "output", string(stdoutBytes))
-	}
-
 	if cmdErr != nil {
 		return fmt.Errorf("command failed: %v", cmdErr)
 	}

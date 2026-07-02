@@ -84,7 +84,9 @@ func RunWindow() {
 	slog.Debug("Creating window")
 
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
-		Debug:     true,
+		// Debug (WebView2 devtools/context menu) is opt-in via env, off by
+		// default in shipped builds. Set FINICKY_DEBUG=1 to enable for testing.
+		Debug:     os.Getenv("FINICKY_DEBUG") != "",
 		AutoFocus: true,
 		WindowOptions: webview2.WindowOptions{
 			Title:  "Finicky",

@@ -39,8 +39,8 @@ Finicky is an application for macOS and Windows that allows you to set up rules 
 
 ### Windows
 
-- Download `FinickySetup.exe` from [releases](https://github.com/johnste/finicky/releases) and run the installer
-- Or install via winget: `winget install Finicky`
+- Download `FinickySetup-<version>.exe` from [releases](https://github.com/johnste/finicky/releases) and run the installer
+- Or install via winget: `winget install --id JohnSterling.Finicky`
 - Create a configuration file at `%USERPROFILE%\.finicky.js` (same format as macOS — configs are cross-platform)
 - Open **Settings > Default Apps** and set Finicky as the default web browser
 - Finicky runs in the system tray and routes URLs based on your rules
@@ -117,7 +117,9 @@ See [Building Finicky from source](https://github.com/johnste/finicky/wiki/Build
 
 **Windows (native):**
 ```powershell
-$env:CGO_ENABLED="0"; go build -C apps/finicky/src -ldflags "-H windowsgui" -o ../build/windows/Finicky.exe .
+$env:CGO_ENABLED="0"
+New-Item -ItemType Directory -Force apps/finicky/build/windows | Out-Null
+go build -C apps/finicky/src -ldflags "-H windowsgui" -o ../build/windows/Finicky.exe .
 ```
 
 ### Works well with
