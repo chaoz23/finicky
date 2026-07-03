@@ -3,6 +3,7 @@
 package browser
 
 import (
+	"log/slog"
 	"sort"
 	"strings"
 	"syscall"
@@ -38,8 +39,13 @@ func getBrowsersFromRegistry() []string {
 	// and dedupe so per-user installs aren't missed.
 	seen := map[string]bool{}
 	var names []string
-	for _, root := range []uintptr{hkeyCurrentUser, hkeyLocalMachine} {
-		for _, name := range enumStartMenuBrowsers(root, path) {
+	for _, r := range []struct {
+		label string
+		root  uintptr
+	}{{"HKCU", hkeyCurrentUser}, {"HKLM", hkeyLocalMachine}} {
+		found := enumStartMenuBrowsers(r.root, path)
+		slog.Debug("Browser registry scan", "root", r.label, "found", len(found))
+		for _, name := range found {
 			key := strings.ToLower(name)
 			if !seen[key] {
 				seen[key] = true
@@ -47,6 +53,7 @@ func getBrowsersFromRegistry() []string {
 			}
 		}
 	}
+	slog.Debug("Installed browsers detected", "count", len(names), "browsers", names)
 	return names
 }
 
