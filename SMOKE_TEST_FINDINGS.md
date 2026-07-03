@@ -49,6 +49,14 @@ Real Windows 10 smoke test of build `5ed1293` (release `windows-smoke-test-1`).
 **Convention:** upstream → keep John as author, route Windows issues via maintainer role + `platform:windows` label. Fork → dual attribution ("based on Finicky by John Sterling", Windows port by <maintainer>) and repoint "View on GitHub" to the fork. Fork variant deferred until the upstream/fork decision.
 **Status:** wording fixed; attribution intentionally unchanged pending fork decision.
 
+### F7 — Version handling broken on Windows; wrong version labels · 🟠 Major · TRIAGED
+**Seen:** (surfaced comparing to the public release) About page shows "dev"; update-check sends an empty version.
+**Root cause:** `version/version.go` `GetCurrentVersion()` runs the macOS command `defaults read <Info.plist> CFBundleVersion` — `defaults` does not exist on Windows, so it errors → returns ""/"dev". Separately, `installer.iss` / winget / `versioninfo.json` all hardcode **4.2.2**, but the fork base is **v4.4.0-alpha + 9 commits** (`git describe` = `v4.4.0-alpha-9-gd4d62f8`). 4.2.2 is a stale stable that predates the Rules UI.
+**Fix (plan):** make version cross-platform — add `var version string` in version.go, return it before the Info.plist fallback (preserves macOS dev behavior), and set it via `-ldflags "-X finicky/version.version=…"` in build-windows.sh / CI (source from `git describe`). Align installer/winget/versioninfo to the real base version (~4.4.0-alpha; provisional — final scheme is johnste's call).
+**Status:** triaged. Mechanism fix should land on the Mac side (shared `version.go`, macOS-sensitive).
+
+> **Reference build note:** the macOS **"Latest" release (v4.2.2, Oct 2025) predates the Rules UI** and is NOT a valid reference for F3/F4. The Rules editor arrived in **v4.4.0-alpha**; our fork base is 9 commits past it. Correct reference = v4.4.0-alpha (downloaded) or a current-code macOS build. Architectural read: **F3 (empty browser dropdown) is Windows-specific** — macOS `detect.go` (mdfind/plist) populates it; Windows `detect_windows.go` is returning empty. **F4 (focus) is shared Svelte code** — the `selfSaved` fix helps both platforms.
+
 ---
 
 _Template for new findings:_
