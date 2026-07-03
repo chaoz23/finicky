@@ -1,0 +1,57 @@
+Windows Registry Editor Version 5.00
+
+; Finicky smoke-test registration (per-user, no admin, no Inno Setup).
+; Registers Finicky as a browser + URL handler, mirroring scripts/installer.iss.
+;
+; PATH ASSUMPTION: the executable is at  C:\Finicky\Finicky.exe
+;   -> Create C:\Finicky, drop Finicky.exe in it, then double-click this file.
+;   -> If you put the exe elsewhere, find/replace  C:\\Finicky\\  below first.
+;
+; To undo: run finicky-unregister.reg, then Settings > Default apps to reset.
+
+; ---- ProgID: FinickyURL (runs when Windows invokes a URL assigned to Finicky) ----
+[HKEY_CURRENT_USER\SOFTWARE\Classes\FinickyURL]
+@="Finicky URL"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\SOFTWARE\Classes\FinickyURL\DefaultIcon]
+@="\"C:\\Finicky\\Finicky.exe\",0"
+
+[HKEY_CURRENT_USER\SOFTWARE\Classes\FinickyURL\shell\open\command]
+@="\"C:\\Finicky\\Finicky.exe\" \"%1\""
+
+; ---- finicky:// custom protocol (independent of default-browser choice) ----
+[HKEY_CURRENT_USER\SOFTWARE\Classes\finicky]
+@="Finicky Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\SOFTWARE\Classes\finicky\DefaultIcon]
+@="\"C:\\Finicky\\Finicky.exe\",0"
+
+[HKEY_CURRENT_USER\SOFTWARE\Classes\finicky\shell\open\command]
+@="\"C:\\Finicky\\Finicky.exe\" \"%1\""
+
+; ---- Browser registration under StartMenuInternet ----
+[HKEY_CURRENT_USER\SOFTWARE\Clients\StartMenuInternet\Finicky]
+@="Finicky"
+
+[HKEY_CURRENT_USER\SOFTWARE\Clients\StartMenuInternet\Finicky\DefaultIcon]
+@="\"C:\\Finicky\\Finicky.exe\",0"
+
+[HKEY_CURRENT_USER\SOFTWARE\Clients\StartMenuInternet\Finicky\shell\open\command]
+@="\"C:\\Finicky\\Finicky.exe\" --window"
+
+; ---- Capabilities (makes Finicky selectable in Settings > Default apps) ----
+[HKEY_CURRENT_USER\SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities]
+"ApplicationName"="Finicky"
+"ApplicationDescription"="A rule-based browser routing utility."
+"ApplicationIcon"="\"C:\\Finicky\\Finicky.exe\",0"
+
+[HKEY_CURRENT_USER\SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URLAssociations]
+"http"="FinickyURL"
+"https"="FinickyURL"
+"finicky"="FinickyURL"
+
+; ---- RegisteredApplications (index Windows checks to discover URL handlers) ----
+[HKEY_CURRENT_USER\SOFTWARE\RegisteredApplications]
+"Finicky"="SOFTWARE\\Clients\\StartMenuInternet\\Finicky\\Capabilities"

@@ -1,0 +1,14 @@
+Windows Registry Editor Version 5.00
+
+; Finicky smoke-test cleanup — removes everything finicky-register.reg added.
+; Run this to leave the test machine clean. If Finicky was set as the default
+; browser, also open Settings > Default apps and pick another browser first.
+
+[-HKEY_CURRENT_USER\SOFTWARE\Classes\FinickyURL]
+
+[-HKEY_CURRENT_USER\SOFTWARE\Classes\finicky]
+
+[-HKEY_CURRENT_USER\SOFTWARE\Clients\StartMenuInternet\Finicky]
+
+[HKEY_CURRENT_USER\SOFTWARE\RegisteredApplications]
+"Finicky"=-
