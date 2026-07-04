@@ -92,6 +92,23 @@ So `*.google.com` fails because (a) no trailing wildcard vs the normalized trail
 **Real (shared, not Windows) sharp edge worth a product decision:** the Rules UI's wildcard warning (`patternNeedsWildcard`) only fires when a pattern has **no `*` at all**. A pattern like `*.google.com` has a `*`, so it shows **no** warning, yet still matches nothing — giving false confidence. Options for johnste/Rules-UI: auto-suffix `/*`, treat bare hostnames as hostname matches, or broaden the warning. **Fix for the user right now:** use `*google.com/*` (or `*google.com*`).
 **Status:** not a bug; user educated. UX observation logged for the shared Rules editor (defer to upstream).
 
+### Installer + Tier 1/Tier 2 pass (2026-07-03 evening, build `7babaf3`)
+**Installer (first run on real hardware) — ✅ full lifecycle verified:**
+- Compiled `scripts/installer.iss` with Inno Setup 6 (winget `JRSoftware.InnoSetup`); only a harmless unused-var hint.
+- Silent per-user install (`/VERYSILENT /MERGETASKS=autostart`, **no UAC** thanks to `PrivilegesRequired=lowest`): exit 0; exe + uninstaller in `%LOCALAPPDATA%\Finicky`; ProgID `FinickyURL`, `finicky://` protocol, StartMenuInternet + Capabilities, RegisteredApplications, and autostart Run key all written correctly (verified in registry).
+- Silent uninstall: exit 0; **every** registry key removed; running process killed. Reinstall: exit 0, all restored.
+- ⚠️ Packaging wart: install dir `{localappdata}\Finicky` **collides with the app's cache dir** (`os.UserCacheDir()\Finicky`) — config cache/bundles sit next to the exe, and `[UninstallDelete]` wipes them with the program. Recommend `DefaultDirName={userpf}\Finicky` (= `%LOCALAPPDATA%\Programs\Finicky`) to separate program from cache. Also: uninstall couldn't delete legacy AF_UNIX `.sock` reparse-point files (pre-F8 artifact only; named-pipe builds never create them — non-issue for fresh installs).
+
+**Tier 1 (registration + OS handoff) — ✅ except the human step:**
+- `finicky://open/<b64>` via `Start-Process` (real ShellExecute → OS resolves handler): launched the **installed** exe, decoded, routed to Edge. PASS.
+- Second protocol launch with primary resident: raw URL handed over the named pipe (`Received URL from IPC`), decoded by primary, routed; still exactly 1 process. PASS (F8 re-verified through the real installed path).
+- Startup log correctly reports "Finicky is not the default browser" pre-selection.
+- ⏳ Remaining (needs a human): Settings ▸ Default apps ▸ set Finicky (ProgID `FinickyURL`), click http(s) links from real apps, confirm routing + "Finicky is the default browser" log + Settings does NOT reopen per click. Cleanup after: reset default browser; uninstaller removes registration.
+
+**Tier 2 — ✅ profile routing:** rules file with `browser: "Google Chrome", profile: "dan"` → resolver resolves the display name via Local State (`Found profile by name name=dan path=Default`) → dry-run command includes `--profile-directory=Default`. keepRunning residency observed throughout (resident primary routes successive URLs).
+
+**Deliberately tabled (owner decision 2026-07-03):** second-machine validation (esp. Win10 without WebView2 Runtime) — shipping risk accepted for now; revisit before public release if possible.
+
 ### GUI confirmations (2026-07-04 screenshots) — F1 & F6
 - **F1** ✅ visually confirmed: Preferences default-browser shows **"System default"** and lists Chrome/IE/Edge — **no "Safari"** anywhere.
 - **F6** ✅ visually confirmed: About page reads **"Available on macOS and Windows."**, credits intact (John Sterling, icon @uetchy). Version shows **4.2.2** (the known-stale F7 number).
