@@ -29,8 +29,11 @@ DisableProgramGroupPage=yes
 OutputBaseFilename=FinickySetup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
+; commandline-only override: interactive installs go straight to UAC (target
+; audience is personal, unmanaged machines - product owner call, 2026-07-04);
+; /CURRENTUSER remains available for the rare no-admin case, unadvertised.
 PrivilegesRequired=admin
-PrivilegesRequiredOverridesAllowed=dialog commandline
+PrivilegesRequiredOverridesAllowed=commandline
 SetupIconFile=..\apps\finicky\assets\Resources\finicky.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
