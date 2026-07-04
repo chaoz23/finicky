@@ -43,13 +43,13 @@ All green — driven via CLI + logs/stderr (no GUI needed):
 **Seen:** the rule browser dropdown is empty (no auto-detected browsers), forcing "Custom...".
 **Root cause (NOT the registry):** detection works fine — `GetInstalledBrowsers()` returns 3 on this box (Google Chrome, Internet Explorer, Microsoft Edge); logs confirm `HKLM found=3`, `Installed browsers detected count=3`. The real bug was one layer up: **the entire UI→Go message bridge was dead on Windows.** `App.svelte` replaces `window.finicky` after load with a `sendMessage` that posts only to `window.webkit.messageHandlers.finicky` (the macOS WKWebView bridge). On WebView2 `window.webkit` is undefined, so optional-chaining made `sendMessage` a silent no-op — every `getInstalledBrowsers` / `getRules` / `saveRules` / `testUrl` request was dropped before reaching Go (verified: no `Received message from webview` log lines at all pre-fix). This also explains F2 (test URL never returns) and the save half of F4.
 **Fix:** `App.svelte` `sendMessage` now routes to whichever bridge exists — `window.webkit.messageHandlers.finicky` on macOS, else `window.__finicky_send` (the WebView2 binding the Windows host already exposes in `window_windows.go`). Added `__finicky_send?` to the `Window` type in `types.ts`. macOS path unchanged (webkit tried first) — no divergence.
-**Status:** ✅ Fixed + verified on box. Post-fix log shows `getRules` + `getInstalledBrowsers` received by Go and 3 browsers sent back. (Visual confirmation that the dropdown paints the 3 entries still wants a GUI pass — but the data now round-trips.)
+**Status:** ✅ Fixed + verified on box, now including **visual confirmation** (2026-07-04 screenshots): the rule browser dropdown and the Preferences default-browser dropdown both paint **Google Chrome / Internet Explorer / Microsoft Edge** (+ Custom). Post-fix log also shows `getRules` + `getInstalledBrowsers` received by Go with 3 browsers returned.
 
 ### F4 — New rules cannot be created (focus lost between fields) · 🔴 Critical · FIX STAGED
 **Seen:** in a new rule, tabbing from the custom-browser input to the URL box fails; clicking from the URL box to the browser box fails. Net: rules can't be saved.
 **Root cause:** `Rules.svelte` saves on every field `onblur` → Go echoes a `rules` message → the `$effect` reassigns `rules`, re-rendering the rows **during** the focus transition, so the move to the next field is lost. Deterministic under WebView2's event timing.
 **Fix:** added a `selfSaved` guard so the echo of our *own* save no longer clobbers local edit state / re-renders rows (external changes still sync). Preserves focus across field transitions.
-**Status:** `selfSaved` guard staged in `Rules.svelte`. ⚠️ Note: the F3/bridge fix is a prerequisite — before it, `saveRules` never reached Go at all (silent no-op), so no rule could persist regardless of focus. With the bridge alive, the focus behavior itself still needs a GUI pass to confirm (WebView2 focus timing can't be checked from macOS, and this session has no desktop computer-use to drive the native window). Remaining manual verification: open `--window`, add a rule, tab browser↔URL, confirm focus holds and the rule persists on reopen.
+**Status:** `selfSaved` guard staged in `Rules.svelte`, and **on-box screenshots (2026-07-04) show it working**: multiple rules were built with a browser + 2 URL patterns each, plus a third rule added live, all persisted to `rules.json` ("Config loaded ✓"). Rules with several fields could not have been assembled if focus were lost on each transition, so F4 is effectively confirmed fixed. (Frame-by-frame focus timing wasn't captured, but the functional outcome is verified.) Note: the F3/bridge fix was a prerequisite — before it `saveRules` never reached Go, so nothing could persist regardless of focus.
 
 ### F5 — No Windows icon on the .exe / window · 🟡 Fit-and-finish · FIX STAGED
 **Seen:** Finicky.exe has the generic Windows icon (no Finicky icon in Explorer/taskbar/window).
@@ -78,6 +78,24 @@ All green — driven via CLI + logs/stderr (no GUI needed):
 **Fix:** `main_windows.go` now uses a Windows named pipe via `github.com/Microsoft/go-winio` — `winio.ListenPipe(\\.\pipe\FinickyBrowserRouter)` / `winio.DialPipe(...)`. Both return the same `net.Listener`/`net.Conn` interfaces, so `listenForURLs` / `sendToPrimary` bodies barely change. No on-disk artifact → no stale-file handling. Pipe name is machine-wide to match the existing `Global\` single-instance mutex. macOS untouched (Windows-only file).
 **New dependency:** `github.com/Microsoft/go-winio v0.6.2` (direct). Battle-tested (Docker/containerd). ⚠️ **Mac session: please ratify this dependency before promoting to `windows-support`/PR #542.**
 **Status:** ✅ Fixed + verified end-to-end. `IPC listener started address=\\.\pipe\FinickyBrowserRouter`; two launches → one process; secondary URL delivered via `Received URL from IPC` and routed to Edge; secondary exits 0, no duplicate.
+
+### F9 — Rule patterns silently don't match (glob vs. hostname mental model) · 🟡 UX · NOT-A-PORT-BUG (observed 2026-07-04)
+**Seen (on box):** user set rules `Google Chrome → *.google.com` and `Microsoft Edge → test.com`, then Test tab on `https://google.com` returned **Microsoft Edge**, not Chrome. Reported as a bug.
+**Root cause — expected finicky behavior, not a Windows defect:** finicky string `match` is a **glob over the whole normalized URL** (`https://google.com/`, scheme + trailing slash), not a hostname match. Verified via the real `finickyConfigAPI` in a resolver repro:
+| pattern | `https://google.com` | `https://www.google.com` |
+|---|---|---|
+| `*.google.com` (their rule) | Edge | Edge |
+| `*.google.com/*` | Edge | Chrome |
+| `*google.com/*` | Chrome | Chrome |
+| `*google.com*` | Chrome | Chrome |
+So `*.google.com` fails because (a) no trailing wildcard vs the normalized trailing `/`, and (b) `*.` requires a subdomain dot the apex lacks; `test.com` fails for having no wildcard. The engine + Test tab are working **correctly** — and the fact that the test resolved via the user's rule set proves the whole Windows save→VM-rebuild→resolve→Test pipeline works. Matching is shared JS (`finickyConfigAPI`), identical on macOS.
+**Real (shared, not Windows) sharp edge worth a product decision:** the Rules UI's wildcard warning (`patternNeedsWildcard`) only fires when a pattern has **no `*` at all**. A pattern like `*.google.com` has a `*`, so it shows **no** warning, yet still matches nothing — giving false confidence. Options for johnste/Rules-UI: auto-suffix `/*`, treat bare hostnames as hostname matches, or broaden the warning. **Fix for the user right now:** use `*google.com/*` (or `*google.com*`).
+**Status:** not a bug; user educated. UX observation logged for the shared Rules editor (defer to upstream).
+
+### GUI confirmations (2026-07-04 screenshots) — F1 & F6
+- **F1** ✅ visually confirmed: Preferences default-browser shows **"System default"** and lists Chrome/IE/Edge — **no "Safari"** anywhere.
+- **F6** ✅ visually confirmed: About page reads **"Available on macOS and Windows."**, credits intact (John Sterling, icon @uetchy). Version shows **4.2.2** (the known-stale F7 number).
+- **Warning icon renders** under WebView2 (the ⚠️ + "Exact URLs rarely match…" tooltip appeared on the wildcard-less `test.com` row) — rules out a WebView2 SVG-render concern.
 
 ---
 
