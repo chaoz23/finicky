@@ -16,15 +16,14 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net"
 	"os"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 	"unsafe"
 
+	"github.com/Microsoft/go-winio"
 	"github.com/dop251/goja"
 )
 
@@ -540,23 +539,24 @@ func setupVM(cfw *config.ConfigFileWatcher, namespace string) (*config.VM, error
 	return newVM, nil
 }
 
-// listenForURLs starts a local socket server. When a second finicky.exe is
+// listenForURLs starts a local named-pipe server. When a second finicky.exe is
 // launched with a URL (or --window), it connects here and hands off the request
 // instead of starting a duplicate router.
+//
+// Windows named pipes (not AF_UNIX sockets) are used deliberately: Go's
+// net.Listen("unix", …) on Windows fails intermittently with WSAEINVAL after
+// socket create/remove cycles, which silently disabled single-instance routing.
+// Named pipes have no on-disk artifact, so there is no stale-file cleanup and no
+// such flakiness.
 func listenForURLs() {
-	listener, err := net.Listen("unix", pipeAddr())
+	listener, err := winio.ListenPipe(pipeName(), nil)
 	if err != nil {
-		// Stale socket from a previous crash — remove and retry once.
-		os.Remove(pipeAddr())
-		listener, err = net.Listen("unix", pipeAddr())
-		if err != nil {
-			slog.Error("Failed to start URL listener", "error", err)
-			return
-		}
+		slog.Error("Failed to start URL listener", "error", err)
+		return
 	}
 	defer listener.Close()
 
-	slog.Debug("IPC listener started", "address", pipeAddr())
+	slog.Debug("IPC listener started", "address", pipeName())
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -615,14 +615,15 @@ func handOffToPrimary(urlFromArgs string) {
 }
 
 // sendToPrimary hands a payload (a URL, or the show-window sentinel) to the
-// running instance over the local socket. The primary creates its
-// single-instance mutex before it begins listening, so a request from a
-// near-simultaneous launch can briefly beat the socket into existence; retry
-// for ~1s to cover that startup window.
+// running instance over the named pipe. The primary creates its single-instance
+// mutex before it begins listening, so a request from a near-simultaneous launch
+// can briefly beat the pipe into existence; retry for ~1s to cover that startup
+// window.
 func sendToPrimary(payload string) error {
+	dialTimeout := 100 * time.Millisecond
 	var lastErr error
 	for i := 0; i < 20; i++ {
-		conn, err := net.Dial("unix", pipeAddr())
+		conn, err := winio.DialPipe(pipeName(), &dialTimeout)
 		if err != nil {
 			lastErr = err
 			time.Sleep(50 * time.Millisecond)
@@ -636,18 +637,9 @@ func sendToPrimary(payload string) error {
 	return lastErr
 }
 
-var pipeOnce sync.Once
-var pipeAddress string
-
-func pipeAddr() string {
-	pipeOnce.Do(func() {
-		cacheDir, err := os.UserCacheDir()
-		if err != nil {
-			pipeAddress = os.TempDir() + `\finicky.sock`
-			return
-		}
-		os.MkdirAll(cacheDir+`\Finicky`, 0755)
-		pipeAddress = cacheDir + `\Finicky\finicky.sock`
-	})
-	return pipeAddress
+// pipeName is the machine-wide named pipe used for single-instance IPC. Its
+// scope matches the Global\ mutex above so the pipe and the mutex agree on what
+// "already running" means.
+func pipeName() string {
+	return `\\.\pipe\FinickyBrowserRouter`
 }

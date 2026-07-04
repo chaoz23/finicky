@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -96,36 +95,10 @@ func setLastUpdateCheck(info UpdateCheckInfo) {
 	}
 }
 
-func GetCurrentVersion() string {
-	// Get the bundle path
-	bundlePath := os.Getenv("BUNDLE_PATH")
-	if bundlePath == "" {
-		execPath, err := os.Executable()
-		if err != nil {
-			slog.Error("Error getting executable path", "error", err)
-			return ""
-		}
-
-		bundlePath = filepath.Join(filepath.Dir(execPath), "..", "Info.plist")
-	}
-
-	// Read and parse Info.plist
-	cmd := exec.Command("defaults", "read", bundlePath, "CFBundleVersion")
-	output, err := cmd.Output()
-	if err != nil {
-		slog.Error("Error reading version from Info.plist", "error", err)
-		return ""
-	}
-
-	version := strings.TrimSpace(string(output))
-
-	if version == "" {
-		slog.Error("Could not determine current version")
-		return "dev"
-	}
-
-	return version
-}
+// GetCurrentVersion returns the running build's version. Its implementation is
+// platform-specific (version_darwin.go reads Info.plist; version_windows.go
+// reads the PE version resource) because the two platforms package version
+// metadata differently.
 
 func checkForUpdates() (releaseInfo *ReleaseInfo) {
 	currentVersion := GetCurrentVersion()
