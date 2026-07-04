@@ -120,6 +120,12 @@ So `*.google.com` fails because (a) no trailing wildcard vs the normalized trail
 **Open:** the HKCU-vs-HKLM decision (owner + johnste); HKLM cleanup script (tonight's HKLM mirror on this box has no uninstaller — removal needs an elevated delete of `HKLM\SOFTWARE\Clients\StartMenuInternet\Finicky`, `HKLM\SOFTWARE\Classes\FinickyURL`, and the `HKLM\...\RegisteredApplications` value); fresh-boot HKCU-only retest.
 **Status:** Finicky now appears in the Win11 picker (verified by owner screenshot, "New" badge). Default-set + real link-click test in progress.
 
+### F11 — Start Menu shortcut appears dead (no window) · 🟠 Major · ✅ FIXED (2026-07-03)
+**Seen (owner report):** launching Finicky from the Start Menu shows nothing — "broken or not rendering."
+**Root cause:** the installer's `[Icons]` entry launches `Finicky.exe` with **no arguments**. A bare launch is the windowless resident-router mode (correct for autostart) — and if a primary is already resident, the second instance exits silently after finding nothing to hand off. Reproduced on-box: no-arg launch with resident primary → process count unchanged, no window, no error.
+**Fix:** shortcut now passes `--window`. Verified the full path: with a resident primary, `--window` sends the show-window sentinel over the named pipe → primary logs `Received show-window request from another instance` → `Creating window` → window appears. Patched the installed `.lnk` in place and fixed `installer.iss`; installer recompiles clean.
+**Status:** ✅ fixed + verified live (window opened via pipe request).
+
 ### GUI confirmations (2026-07-04 screenshots) — F1 & F6
 - **F1** ✅ visually confirmed: Preferences default-browser shows **"System default"** and lists Chrome/IE/Edge — **no "Safari"** anywhere.
 - **F6** ✅ visually confirmed: About page reads **"Available on macOS and Windows."**, credits intact (John Sterling, icon @uetchy). Version shows **4.2.2** (the known-stale F7 number).
