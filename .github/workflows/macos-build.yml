@@ -3,7 +3,7 @@ name: macOS Build
 
 on:
     push:
-      branches: [main]
+      branches: [main, windows-support, windows-smoke]
     pull_request:
       branches: [main]
     workflow_dispatch:
