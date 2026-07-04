@@ -34,8 +34,11 @@ evidence behind every claim is in `SMOKE_TEST_FINDINGS.md`.
    pipe library and drops in via the same net.Listener/net.Conn interfaces.
    If vetoed, the alternative is hand-rolled overlapped-I/O named pipes; there
    is no viable AF_UNIX path.
-2. **Cherry-pick `7babaf3` → `windows-support`** (code only; never the testing
-   docs). Verify macOS build + tests after — the commit touches shared files
+2. **Cherry-pick the code commits → `windows-support`** (never the testing
+   docs): `7babaf3` (bridge/IPC/version), `49748db` (F10 registration shape +
+   SHChangeNotify + FileDescription), `688b421` (F11 Start Menu --window), and
+   the F12 UserChoiceLatest fix in `browser_windows.go` (Win11 26200 stores the
+   default-browser choice in UserChoiceLatest, legacy UserChoice goes stale). Verify macOS build + tests after — the commit touches shared files
    (`App.svelte`, `types.ts`, `version.go` split, resolver/rules tests) but was
    written to keep macOS behavior identical (webkit bridge tried first; darwin
    version file unchanged; tests assert `browser.DefaultBrowserName`).
