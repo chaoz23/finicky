@@ -39,7 +39,10 @@ Name: "setdefault"; Description: "Open Default Apps settings after install"; Gro
 Source: "..\apps\finicky\build\windows\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+; --window: clicking the Start Menu entry must open the config UI. A bare
+; launch is the (windowless) resident-router mode used by autostart, and with
+; a primary already running it exits silently - i.e. the shortcut appears dead.
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--window"
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 
 [Registry]
