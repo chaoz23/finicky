@@ -71,6 +71,16 @@ Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URL
 Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URLAssociations"; ValueName: "https"; ValueType: string; ValueData: "FinickyURL"
 Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URLAssociations"; ValueName: "finicky"; ValueType: string; ValueData: "FinickyURL"
 
+; ---- Browser-shape extras (required for the Win11 Default Apps picker) ----
+; Win11 filters the http/https picker to apps that look like full browsers:
+; FileAssociations + Startmenu + InstallInfo must exist alongside
+; URLAssociations, or Finicky never appears as a selectable option.
+Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\FileAssociations"; ValueName: ".htm"; ValueType: string; ValueData: "FinickyURL"
+Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\FileAssociations"; ValueName: ".html"; ValueType: string; ValueData: "FinickyURL"
+Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\Startmenu"; ValueName: "StartMenuInternet"; ValueType: string; ValueData: "Finicky"
+Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\InstallInfo"; ValueName: "ReinstallCommand"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" --window"
+Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\InstallInfo"; ValueName: "IconsVisible"; ValueType: dword; ValueData: 1
+
 ; ---- RegisteredApplications ----
 ; The master index Windows checks to discover which apps offer URL handling.
 Root: HKCU; Subkey: "SOFTWARE\RegisteredApplications"; ValueName: "Finicky"; ValueType: string; ValueData: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities"; Flags: uninsdeletevalue
@@ -96,17 +106,13 @@ Type: filesandordirs; Name: "{localappdata}\Finicky"
 
 [Code]
 // Notify Windows that registered applications changed so the Default Apps
-// list refreshes without requiring a reboot.
+// picker refreshes. NOT optional: without this (verified on Win11 26200),
+// Settings does not see the new registration until a shell restart/logon.
+procedure SHChangeNotify(wEventID, uFlags, dwItem1, dwItem2: Integer);
+  external 'SHChangeNotify@shell32.dll stdcall';
+
 procedure CurStepChanged(CurStep: TSetupStep);
-var
-  Res: Integer;
 begin
   if CurStep = ssPostInstall then
-  begin
-    // SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, 0, 0)
-    // Inno doesn't expose SHChangeNotify directly, but we can call it via
-    // a small helper. The registry changes above are sufficient — Windows
-    // picks them up on next Settings open. For immediate refresh we'd need
-    // a DLL call, which is optional polish.
-  end;
+    SHChangeNotify($08000000, 0, 0, 0); // SHCNE_ASSOCCHANGED, SHCNF_IDLIST
 end;
