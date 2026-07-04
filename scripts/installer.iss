@@ -1,6 +1,14 @@
 ; Finicky for Windows — Inno Setup installer
 ; Registers Finicky as a browser so Windows routes http/https URLs to it.
-; Per-user install (no admin required).
+;
+; Install mode: admin (all-users) by default, per-user via /CURRENTUSER.
+; Rationale (smoke-test finding F10): on current Windows 11 (observed on
+; build 26200) the Default Apps picker only offers browsers registered
+; machine-wide (HKLM) — a per-user (HKCU-only) registration is complete and
+; correct but never appears as a selectable default browser. HKA roots below
+; resolve to HKLM in admin mode and HKCU in per-user mode, so /CURRENTUSER
+; still yields a working install for routing/protocol use on systems where
+; per-user registration is honored.
 
 #define MyAppName "Finicky"
 #define MyAppVersion "4.2.2"
@@ -15,13 +23,14 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}/issues
-DefaultDirName={localappdata}\{#MyAppName}
+DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputBaseFilename=FinickySetup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
+PrivilegesRequiredOverridesAllowed=dialog commandline
 SetupIconFile=..\apps\finicky\assets\Resources\finicky.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -48,50 +57,50 @@ Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 [Registry]
 ; ---- ProgID: FinickyURL ----
 ; This is the handler that runs when Windows invokes a URL assigned to Finicky.
-Root: HKCU; Subkey: "SOFTWARE\Classes\FinickyURL"; ValueType: string; ValueData: "Finicky URL"; Flags: uninsdeletekey
-Root: HKCU; Subkey: "SOFTWARE\Classes\FinickyURL"; ValueName: "URL Protocol"; ValueType: string; ValueData: ""
-Root: HKCU; Subkey: "SOFTWARE\Classes\FinickyURL\DefaultIcon"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"",0"
-Root: HKCU; Subkey: "SOFTWARE\Classes\FinickyURL\shell\open\command"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+Root: HKA; Subkey: "SOFTWARE\Classes\FinickyURL"; ValueType: string; ValueData: "Finicky URL"; Flags: uninsdeletekey
+Root: HKA; Subkey: "SOFTWARE\Classes\FinickyURL"; ValueName: "URL Protocol"; ValueType: string; ValueData: ""
+Root: HKA; Subkey: "SOFTWARE\Classes\FinickyURL\DefaultIcon"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"",0"
+Root: HKA; Subkey: "SOFTWARE\Classes\FinickyURL\shell\open\command"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
 
 ; ---- finicky:// custom protocol (always active, independent of default browser choice) ----
-Root: HKCU; Subkey: "SOFTWARE\Classes\finicky"; ValueType: string; ValueData: "Finicky Protocol"; Flags: uninsdeletekey
-Root: HKCU; Subkey: "SOFTWARE\Classes\finicky"; ValueName: "URL Protocol"; ValueType: string; ValueData: ""
-Root: HKCU; Subkey: "SOFTWARE\Classes\finicky\DefaultIcon"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"",0"
-Root: HKCU; Subkey: "SOFTWARE\Classes\finicky\shell\open\command"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+Root: HKA; Subkey: "SOFTWARE\Classes\finicky"; ValueType: string; ValueData: "Finicky Protocol"; Flags: uninsdeletekey
+Root: HKA; Subkey: "SOFTWARE\Classes\finicky"; ValueName: "URL Protocol"; ValueType: string; ValueData: ""
+Root: HKA; Subkey: "SOFTWARE\Classes\finicky\DefaultIcon"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"",0"
+Root: HKA; Subkey: "SOFTWARE\Classes\finicky\shell\open\command"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
 
 ; ---- Browser registration under StartMenuInternet ----
 ; This makes Finicky appear in Settings > Default Apps > Web browser.
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky"; ValueType: string; ValueData: "Finicky"; Flags: uninsdeletekey
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\DefaultIcon"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"",0"
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\shell\open\command"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" --window"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky"; ValueType: string; ValueData: "Finicky"; Flags: uninsdeletekey
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\DefaultIcon"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"",0"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\shell\open\command"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" --window"
 
 ; ---- Capabilities ----
 ; Tells Windows which URL schemes Finicky can handle.
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities"; ValueName: "ApplicationName"; ValueType: string; ValueData: "Finicky"
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities"; ValueName: "ApplicationDescription"; ValueType: string; ValueData: "A rule-based browser routing utility. Define rules to open URLs in different browsers based on the link domain, path, or source application."
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities"; ValueName: "ApplicationIcon"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"",0"
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URLAssociations"; ValueName: "http"; ValueType: string; ValueData: "FinickyURL"
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URLAssociations"; ValueName: "https"; ValueType: string; ValueData: "FinickyURL"
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URLAssociations"; ValueName: "finicky"; ValueType: string; ValueData: "FinickyURL"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities"; ValueName: "ApplicationName"; ValueType: string; ValueData: "Finicky"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities"; ValueName: "ApplicationDescription"; ValueType: string; ValueData: "A rule-based browser routing utility. Define rules to open URLs in different browsers based on the link domain, path, or source application."
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities"; ValueName: "ApplicationIcon"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"",0"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URLAssociations"; ValueName: "http"; ValueType: string; ValueData: "FinickyURL"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URLAssociations"; ValueName: "https"; ValueType: string; ValueData: "FinickyURL"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\URLAssociations"; ValueName: "finicky"; ValueType: string; ValueData: "FinickyURL"
 
 ; ---- Browser-shape extras (required for the Win11 Default Apps picker) ----
 ; Win11 filters the http/https picker to apps that look like full browsers:
 ; FileAssociations + Startmenu + InstallInfo must exist alongside
 ; URLAssociations, or Finicky never appears as a selectable option.
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\FileAssociations"; ValueName: ".htm"; ValueType: string; ValueData: "FinickyURL"
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\FileAssociations"; ValueName: ".html"; ValueType: string; ValueData: "FinickyURL"
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\Startmenu"; ValueName: "StartMenuInternet"; ValueType: string; ValueData: "Finicky"
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\InstallInfo"; ValueName: "ReinstallCommand"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" --window"
-Root: HKCU; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\InstallInfo"; ValueName: "IconsVisible"; ValueType: dword; ValueData: 1
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\FileAssociations"; ValueName: ".htm"; ValueType: string; ValueData: "FinickyURL"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\FileAssociations"; ValueName: ".html"; ValueType: string; ValueData: "FinickyURL"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\Startmenu"; ValueName: "StartMenuInternet"; ValueType: string; ValueData: "Finicky"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\InstallInfo"; ValueName: "ReinstallCommand"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"" --window"
+Root: HKA; Subkey: "SOFTWARE\Clients\StartMenuInternet\Finicky\InstallInfo"; ValueName: "IconsVisible"; ValueType: dword; ValueData: 1
 
 ; ---- RegisteredApplications ----
 ; The master index Windows checks to discover which apps offer URL handling.
-Root: HKCU; Subkey: "SOFTWARE\RegisteredApplications"; ValueName: "Finicky"; ValueType: string; ValueData: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "SOFTWARE\RegisteredApplications"; ValueName: "Finicky"; ValueType: string; ValueData: "SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities"; Flags: uninsdeletevalue
 
 ; ---- Autostart (optional) ----
 ; Launch WITHOUT --window: autostart makes Finicky the resident URL router at
 ; login (useful with keepRunning), it must not pop the config window on boot.
-Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; ValueName: "Finicky"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: autostart
+Root: HKA; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; ValueName: "Finicky"; ValueType: string; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
 ; After install, optionally open Default Apps so the user can select Finicky
