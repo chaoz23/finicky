@@ -134,7 +134,8 @@ So `*.google.com` fails because (a) no trailing wildcard vs the normalized trail
 
 ### F13 — Autostart Run entry never executes at logon · 🟠 Major · OPEN
 **Seen (post-reboot):** Finicky's HKCU `Run` value was present and unblocked (no `StartupApproved` disable flag), yet `Microsoft-Windows-Shell-Core/Operational` shows Explorer executed **every other** Run entry in both logon batches (22:14, 22:24 — OneDrive, Discord, Chrome, etc.) and never Finicky's. First Finicky process after boot was click-spawned (started with a URL argument at first Discord click). Mitigation applied: Run value rewritten + explicit enabled `StartupApproved\Run` bytes — verify on next natural reboot. If it still doesn't fire, consider a Startup-folder shortcut or scheduled task instead of the Run key.
-**Status:** OPEN — awaiting next reboot to verify.
+**Status:** ✅ CLOSED (2026-07-04, reboot #2). The **HKLM** Run entry written by the admin-mode installer executed at logon (`03:22:34 Started execution of Finicky.exe`, Shell-Core event 9707, alongside all other startup apps); router resident from Program Files 17s after boot, no config window popped. Root cause: Win11 26200 skips late-added **HKCU** Run entries (reproducibly, across two logon batches) while HKLM entries fire normally — solved as a side effect of the F10 admin-install decision. Bonus: default-browser choice (UserChoiceLatest=FinickyURL) survived its second reboot.
+
 
 ### Stale picker label (F10 follow-up)
 "Rule-based browser router" persists in Settings even after the FileDescription fix, MuiCache purge, **and a reboot** — the string lives in a deeper cache (likely the Settings/App state repository), keyed from the first registration. Fresh installs on clean machines get the corrected "Finicky" (the exe now ships FileDescription=Finicky), so this is **this-box-only debris**, not a release issue. Optional cleanup: full uninstall → reboot → reinstall would force re-registration.
