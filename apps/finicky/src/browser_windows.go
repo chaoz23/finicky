@@ -36,8 +36,19 @@ func isDefaultBrowser() (bool, error) {
 	return httpHandler == progID && httpsHandler == progID, nil
 }
 
+// getDefaultHandlerForURLScheme reads the effective ProgId for a scheme.
+// Newer Windows 11 builds (observed on 26200) record the user's choice under
+// UserChoiceLatest\ProgId and leave the legacy UserChoice key stale — reading
+// only UserChoice reports the wrong (old) handler forever. Prefer the new
+// location, fall back to the legacy one for older builds.
 func getDefaultHandlerForURLScheme(scheme string) (string, error) {
-	path := fmt.Sprintf(`SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\%s\UserChoice`, scheme)
+	if progId, err := readUserChoiceProgId(fmt.Sprintf(`SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\%s\UserChoiceLatest\ProgId`, scheme)); err == nil {
+		return progId, nil
+	}
+	return readUserChoiceProgId(fmt.Sprintf(`SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\%s\UserChoice`, scheme))
+}
+
+func readUserChoiceProgId(path string) (string, error) {
 	pathPtr, _ := syscall.UTF16PtrFromString(path)
 
 	var key syscall.Handle
@@ -49,7 +60,7 @@ func getDefaultHandlerForURLScheme(scheme string) (string, error) {
 		uintptr(unsafe.Pointer(&key)),
 	)
 	if ret != 0 {
-		return "", fmt.Errorf("no default handler found for '%s'", scheme)
+		return "", fmt.Errorf("no key at '%s'", path)
 	}
 	defer procRegCloseKeyB.Call(uintptr(key))
 
@@ -64,7 +75,7 @@ func getDefaultHandlerForURLScheme(scheme string) (string, error) {
 		uintptr(unsafe.Pointer(&size)),
 	)
 	if ret != 0 {
-		return "", fmt.Errorf("no ProgId found for '%s'", scheme)
+		return "", fmt.Errorf("no ProgId value at '%s'", path)
 	}
 
 	return syscall.UTF16ToString(buf), nil
