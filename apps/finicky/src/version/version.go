@@ -36,7 +36,22 @@ var (
 	commitHash = "dev"
 	buildDate  = "unknown"
 	apiHost    = ""
+	// version is the authoritative build version, injected via
+	// -X 'finicky/version.version=$(git describe --tags --match v*)'.
+	// When empty (e.g. a bare `go build`), GetCurrentVersion falls back to
+	// platform metadata: Info.plist on macOS, the PE version resource on
+	// Windows — both of which may lag the real version, hence the override.
+	version = ""
 )
+
+// GetCurrentVersion returns the running build's version: the ldflags-injected
+// value when present, otherwise the platform fallback.
+func GetCurrentVersion() string {
+	if version != "" {
+		return version
+	}
+	return getCurrentVersionPlatform()
+}
 
 // GetBuildInfo returns the commit hash and build date
 func GetBuildInfo() (string, string) {

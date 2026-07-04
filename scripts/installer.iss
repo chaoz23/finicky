@@ -11,7 +11,10 @@
 ; per-user registration is honored.
 
 #define MyAppName "Finicky"
-#define MyAppVersion "4.2.2"
+; Overridable from CI: iscc /DMyAppVersion=<git describe> installer.iss
+#ifndef MyAppVersion
+  #define MyAppVersion "4.4.0-alpha"
+#endif
 #define MyAppPublisher "John Sterling"
 #define MyAppURL "https://github.com/johnste/finicky"
 #define MyAppExeName "Finicky.exe"
