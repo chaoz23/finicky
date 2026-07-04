@@ -10,7 +10,7 @@
   },
   "StringFileInfo": {
     "CompanyName": "Finicky",
-    "FileDescription": "Rule-based browser router",
+    "FileDescription": "Finicky",
     "FileVersion": "4.2.2",
     "InternalName": "Finicky.exe",
     "LegalCopyright": "MIT — John Sterling and contributors",

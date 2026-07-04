@@ -109,6 +109,17 @@ So `*.google.com` fails because (a) no trailing wildcard vs the normalized trail
 
 **Deliberately tabled (owner decision 2026-07-03):** second-machine validation (esp. Win10 without WebView2 Runtime) — shipping risk accepted for now; revisit before public release if possible.
 
+### F10 — Finicky not selectable as default browser in Win11 Settings · 🔴 Release-blocking · PARTIALLY FIXED (2026-07-03/04)
+**Seen:** with the shipped registration (installer or .reg), Settings ▸ Default apps never offers Finicky — not in the HTTPS-link picker, not in the app list. A user could install Finicky and have no way to make it their browser. Diagnosed live on Win11 Home build 26200.
+**Root cause — three stacked issues:**
+1. **Registration shape too minimal.** Win11's http/https picker filters to apps that look like full browsers: `Capabilities\FileAssociations` (.htm/.html), `Capabilities\Startmenu`, and `InstallInfo` must exist alongside `URLAssociations`. We only shipped URLAssociations.
+2. **No association-change notification.** The installer's `[Code]` stub deliberately skipped `SHChangeNotify(SHCNE_ASSOCCHANGED)` as "optional polish" — it is not optional; without it (and sometimes even a shell restart), Settings doesn't re-enumerate.
+3. **HKCU alone was not sufficient on this build.** Even with the full browser shape + notifications + `SystemSettings`/Explorer restarts, the picker only listed Finicky after the registration was mirrored to **HKLM** (machine-level — where Chrome/Edge live). ⚠️ Strategic implication: the per-user, no-admin installer (`PrivilegesRequired=lowest`) may be unable to produce a selectable default browser on current Win11. Needs a decision: elevate the installer (admin/dialog) and write HKLM, or keep per-user and accept/UX-around the limitation. (Unclear whether a sign-out would have surfaced the HKCU-only registration — couldn't test without dropping the owner's remote session; a fresh-boot HKCU-only test is the missing data point.)
+**Also found (cosmetic but shipped):** the picker labels the entry with the exe's **`FileDescription`** from the PE version resource — which was "Rule-based browser router", not "Finicky". Windows uses FileDescription as a Win32 app's display name (Chrome's is "Google Chrome"). Fixed: `versioninfo.json` FileDescription → "Finicky", `.syso` regenerated, exe rebuilt/redeployed; stale labels purged from shell `MuiCache`.
+**Fixed so far:** installer.iss + finicky-register.reg now write the full browser shape; installer.iss `[Code]` now really calls `SHChangeNotify` post-install; FileDescription corrected. Installer recompiles clean.
+**Open:** the HKCU-vs-HKLM decision (owner + johnste); HKLM cleanup script (tonight's HKLM mirror on this box has no uninstaller — removal needs an elevated delete of `HKLM\SOFTWARE\Clients\StartMenuInternet\Finicky`, `HKLM\SOFTWARE\Classes\FinickyURL`, and the `HKLM\...\RegisteredApplications` value); fresh-boot HKCU-only retest.
+**Status:** Finicky now appears in the Win11 picker (verified by owner screenshot, "New" badge). Default-set + real link-click test in progress.
+
 ### GUI confirmations (2026-07-04 screenshots) — F1 & F6
 - **F1** ✅ visually confirmed: Preferences default-browser shows **"System default"** and lists Chrome/IE/Edge — **no "Safari"** anywhere.
 - **F6** ✅ visually confirmed: About page reads **"Available on macOS and Windows."**, credits intact (John Sterling, icon @uetchy). Version shows **4.2.2** (the known-stale F7 number).

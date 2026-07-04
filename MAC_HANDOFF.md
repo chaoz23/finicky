@@ -53,6 +53,16 @@ evidence behind every claim is in `SMOKE_TEST_FINDINGS.md`.
    app's cache dir (cache/bundles sit beside the exe and get wiped by
    `[UninstallDelete]`). Also move `.syso` generation into build-windows.sh/CI
    instead of the committed binary (existing TODO).
+6. **F10 — DECISION NEEDED (release-blocking, read the full finding):** on
+   Win11 26200, Finicky only became selectable as default browser after its
+   registration was mirrored to **HKLM**. The per-user no-admin installer may
+   fundamentally not work for default-browser selection on current Win11.
+   Options: `PrivilegesRequired=admin` (or `dialog`) + HKLM registry entries
+   in installer.iss, vs. staying per-user and documenting a sign-out step
+   (unproven — needs the fresh-boot HKCU-only test noted in the finding).
+   The browser-shape registry keys + SHChangeNotify + FileDescription fixes
+   are already landed in installer.iss / finicky-register.reg /
+   versioninfo.json. This decision gates the un-draft of PR #542.
 6. **PR #542:** once 1–4 land on `windows-support`, post the smoke results
    (`SMOKE_TEST_FINDINGS.md` is the evidence packet) and flip out of draft.
    F9 (glob-vs-hostname rule UX + the too-narrow wildcard warning) is a

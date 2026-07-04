@@ -52,6 +52,22 @@ Windows Registry Editor Version 5.00
 "https"="FinickyURL"
 "finicky"="FinickyURL"
 
+; ---- Browser-shape extras (required for the Win11 Default Apps picker) ----
+; Win11 filters the http/https picker to apps that also declare
+; FileAssociations + Startmenu + InstallInfo. Without these, Finicky never
+; appears as a selectable browser. NOTE: after importing, Windows may still
+; need SHChangeNotify / a sign-out before Settings shows the new entry.
+[HKEY_CURRENT_USER\SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\FileAssociations]
+".htm"="FinickyURL"
+".html"="FinickyURL"
+
+[HKEY_CURRENT_USER\SOFTWARE\Clients\StartMenuInternet\Finicky\Capabilities\Startmenu]
+"StartMenuInternet"="Finicky"
+
+[HKEY_CURRENT_USER\SOFTWARE\Clients\StartMenuInternet\Finicky\InstallInfo]
+"ReinstallCommand"="\"C:\\Finicky\\Finicky.exe\" --window"
+"IconsVisible"=dword:00000001
+
 ; ---- RegisteredApplications (index Windows checks to discover URL handlers) ----
 [HKEY_CURRENT_USER\SOFTWARE\RegisteredApplications]
 "Finicky"="SOFTWARE\\Clients\\StartMenuInternet\\Finicky\\Capabilities"
