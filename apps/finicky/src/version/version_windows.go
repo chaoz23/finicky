@@ -11,11 +11,12 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// GetCurrentVersion reads the product version from the executable's embedded PE
-// version resource (see versioninfo.json / resource_windows_amd64.syso). Windows
-// has no `defaults`/Info.plist equivalent, so we read the resource directly
-// instead of shelling out to a macOS-only tool.
-func GetCurrentVersion() string {
+// getCurrentVersionPlatform reads the product version from the executable's
+// embedded PE version resource (see versioninfo.json /
+// resource_windows_amd64.syso). Windows has no `defaults`/Info.plist
+// equivalent, so we read the resource directly instead of shelling out to a
+// macOS-only tool. Fallback only — the ldflags-injected version wins.
+func getCurrentVersionPlatform() string {
 	exePath, err := os.Executable()
 	if err != nil {
 		slog.Error("Error getting executable path", "error", err)

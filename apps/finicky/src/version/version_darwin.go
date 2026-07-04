@@ -10,9 +10,10 @@ import (
 	"strings"
 )
 
-// GetCurrentVersion reads CFBundleVersion from the app bundle's Info.plist via
-// the macOS `defaults` tool.
-func GetCurrentVersion() string {
+// getCurrentVersionPlatform reads CFBundleVersion from the app bundle's
+// Info.plist via the macOS `defaults` tool. Fallback only — the
+// ldflags-injected version wins.
+func getCurrentVersionPlatform() string {
 	// Get the bundle path
 	bundlePath := os.Getenv("BUNDLE_PATH")
 	if bundlePath == "" {

@@ -25,6 +25,9 @@ echo "Building Finicky for Windows..."
 COMMIT_HASH=$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "dev")
 BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
 API_HOST=$(cat "$ROOT_DIR/.env" 2>/dev/null | grep API_HOST | cut -d '=' -f 2 || echo "")
+# Authoritative version from version tags only (--match filters out CI/test
+# tags); overrides the PE-resource fallback in version_windows.go (F7).
+VERSION=$(git -C "$ROOT_DIR" describe --tags --match 'v*' --always 2>/dev/null || echo "dev")
 
 # Cross-compile for Windows
 mkdir -p "$ROOT_DIR/apps/finicky/build/windows"
@@ -35,6 +38,7 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
     "-X 'finicky/version.commitHash=${COMMIT_HASH}' \
      -X 'finicky/version.buildDate=${BUILD_DATE}' \
      -X 'finicky/version.apiHost=${API_HOST}' \
+     -X 'finicky/version.version=${VERSION}' \
      -H windowsgui" \
     -o ../build/windows/Finicky.exe
 
