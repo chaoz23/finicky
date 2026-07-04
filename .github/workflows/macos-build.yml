@@ -1,5 +1,5 @@
 # This workflow builds the Finicky macOS app for both Silicon (ARM64) and Intel (x86_64) architectures
-name: macOS Build
+name: macOS Build (cross-platform regression check)
 
 on:
     push:
