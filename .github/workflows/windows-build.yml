@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + tags so `git describe` yields the real version
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -38,21 +40,24 @@ jobs:
           cd ../finicky-ui
           npm ci
 
+      # pwsh, not cmd: in a cmd script, `npm` (npm.cmd) without `call` transfers
+      # control and never returns, so everything after the first npm line was
+      # silently skipped and the embed assets never landed.
       - name: Build config-api
         run: |
           cd packages/config-api
           npm run build
           npm run generate-types
-          copy /Y dist\finickyConfigAPI.js ..\..\apps\finicky\src\assets\finickyConfigAPI.js
-        shell: cmd
+          Copy-Item dist/finickyConfigAPI.js ../../apps/finicky/src/assets/finickyConfigAPI.js -Force
+        shell: pwsh
 
       - name: Build UI
         run: |
           cd packages/finicky-ui
           npm run build
-          mkdir ..\..\apps\finicky\src\assets\templates 2>nul
-          xcopy /E /Y dist\* ..\..\apps\finicky\src\assets\templates\
-        shell: cmd
+          New-Item -ItemType Directory -Force ../../apps/finicky/src/assets/templates | Out-Null
+          Copy-Item dist/* ../../apps/finicky/src/assets/templates/ -Recurse -Force
+        shell: pwsh
 
       - name: Build Windows binary
         env:
@@ -62,8 +67,9 @@ jobs:
         run: |
           $commitHash = git rev-parse --short HEAD
           $buildDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC" -AsUTC
+          $version = git describe --tags --match 'v*' --always
           cd apps/finicky/src
-          go build -ldflags "-X 'finicky/version.commitHash=$commitHash' -X 'finicky/version.buildDate=$buildDate' -H windowsgui" -o ../build/windows/Finicky.exe .
+          go build -ldflags "-X 'finicky/version.commitHash=$commitHash' -X 'finicky/version.buildDate=$buildDate' -X 'finicky/version.version=$version' -H windowsgui" -o ../build/windows/Finicky.exe .
         shell: pwsh
 
       - name: Run tests
