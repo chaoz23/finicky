@@ -8,7 +8,17 @@ Real Windows 10 smoke test of build `5ed1293` (release `windows-smoke-test-1`).
 - ✅ **Tier 0.5 — single-instance IPC.** After the F8 fix, two launches share one process: the second's URL arrives over the named pipe (`Received URL from IPC`) and routes; no duplicate spawns.
 - ✅ **UI↔Go bridge round-trips.** After the F3/bridge fix, `getRules` / `getInstalledBrowsers` reach Go and responses return (was completely dead before — see F3).
 
-_Second on-box pass — 2026-07-03, build `e83dad4`+fixes (native Win11 build via winget Go 1.26 / Node 24)._
+_Second on-box pass — 2026-07-03, build `7babaf3` (native Win11 build via winget Go 1.26 / Node 24)._
+
+### Headless verification pass (2026-07-03, build `7babaf3`)
+All green — driven via CLI + logs/stderr (no GUI needed):
+- ✅ **Tier 0.4 — `finicky://open/<base64>` protocol.** `finicky://open/aHR0…` decoded to `https://protocol-decode-test.example.com/path?x=1` and routed to Edge.
+- ✅ **`--config` loading + rule evaluation.** Valid config (`defaultBrowser: Google Chrome`, handler `*example.com* → Microsoft Edge`): `example.com` → Edge (handler), `other.org` → Chrome (default). Confirms handler match, default fallback, and that **goja-babel + esbuild config transform works on Windows** (a cache-miss config triggered a real 247ms babel transform).
+- ✅ **`--config` error handling.** Broken-syntax config → precise `SyntaxError … Unexpected token, expected "," (3:2)` with a code frame, then graceful fallback to default routing (no crash). Missing `--config` path → clean "no config file found at <path>" + default routing.
+- ✅ **Tier 0.3 — real launch (non-dry-run).** `Run command` executed `msedge.exe <url>` with no error (opened as a tab in already-running Edge).
+- ✅ **Profile enumeration (Chromium).** `GetProfilesForBrowser` reads each browser's `Local State`: Edge → 1 profile, Chrome → 3, Firefox/unknown → 0.
+- ⚠️ **Note (not a port bug):** Chrome profile list can contain duplicate display names (two profiles both named "Brenna") — `getAllChromiumProfiles` doesn't dedupe, and `parseProfiles` resolves a name to the first match, so a same-named second profile is unreachable by name. This is **shared** behavior (identical logic in macOS `launcher.go`), pre-existing, not Windows-specific — flagged for awareness only.
+- **Gotcha for future testers:** a config without `logRequests: true` sets `shouldLog:false`, so **no file appears in `%APPDATA%\Finicky\Logs`** — use `--dry-run` with stderr captured, or add `options.logRequests: true`, when testing configs. (No-config runs default to logging on.)
 
 ## Findings
 
