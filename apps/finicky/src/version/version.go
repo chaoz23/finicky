@@ -110,11 +110,6 @@ func setLastUpdateCheck(info UpdateCheckInfo) {
 	}
 }
 
-// GetCurrentVersion returns the running build's version. Its implementation is
-// platform-specific (version_darwin.go reads Info.plist; version_windows.go
-// reads the PE version resource) because the two platforms package version
-// metadata differently.
-
 func checkForUpdates() (releaseInfo *ReleaseInfo) {
 	currentVersion := GetCurrentVersion()
 	if currentVersion == "" {

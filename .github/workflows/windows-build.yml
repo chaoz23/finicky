@@ -1,5 +1,9 @@
 name: Windows Build
 
+# Least-privilege GITHUB_TOKEN: nothing here writes to the repo.
+permissions:
+  contents: read
+
 on:
     push:
       branches: [main, windows-support, windows-smoke]
@@ -16,6 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history + tags so `git describe` yields the real version
+          persist-credentials: false # later steps (npm ci, go build) never need the token
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
